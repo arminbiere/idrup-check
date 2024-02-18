@@ -52,7 +52,7 @@ done
 fuzzer=no
 cadical=no
 cadicaldir="../cadical"
-minisatdir="../ipasir/sat/minisat220/"
+minisatdir="../minisat-idrup/sat/minisat220/"
 
 if [ -d $cadicaldir/ ]
 then
@@ -121,7 +121,7 @@ if [ $minisat = "yes" ];
 then
     LIBRARY=$libminisat;
     echo "$libminisat"
-    HEADER="../ipasir/ipasir.h";
+    HEADER="../minisat-idrup/ipasir.h";
 else
     LIBRARY=$libcadical;
     HEADER=$cadicalheader;
