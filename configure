@@ -28,6 +28,7 @@ msg () {
 debug=no
 symbols=undefined
 check=undefined
+minisat=no;
 
 CC="gcc"
 CFLAGS="-Wall"
@@ -42,6 +43,7 @@ do
     -c | --check) check=yes;;
     -p | --pdf*) TARGETS="$TARGETS pdfs";;
     -a | --asan) CFLAGS="${CFLAGS} -fsanitize=address";;
+    --minisat) minisat=yes;;
     *) die "invalid option '$1' (try '-h')";;
   esac
   shift
@@ -50,6 +52,8 @@ done
 fuzzer=no
 cadical=no
 cadicaldir="../cadical"
+minisatdir="../ipasir/sat/minisat220/"
+
 if [ -d $cadicaldir/ ]
 then
   cadicalbuild=$cadicaldir/build
@@ -84,6 +88,17 @@ else
   msg "could not '$cadicaldir' root directory"
 fi
 
+if [ $minisat = "yes" ] && [ -d $minisatdir/ ]
+then
+  libminisat="$minisatdir/libipasirminisat220.a"
+  if [ -f $libminisat ]
+  then
+      msg "found minisat";
+  else
+      msg "could not find '$libminisat' library"
+  fi
+fi
+
 if [ $fuzzer = yes ]
 then
   msg "building and linking 'idrup-fuzz' fuzzer"
@@ -98,11 +113,25 @@ fi
 [ $symbols = yes ] && CFLAGS="$CFLAGS -g -ggdb3"
 [ $debug = no ] && CFLAGS="$CFLAGS -O3"
 [ $check = no ] && CFLAGS="$CFLAGS -DNDEBUG"
+[ $minisat = no ] && CFLAGS="$CFLAGS -DCADICAL"
 
 msg "using '$CC $CFLAGS'"
 
+if [ $minisat = "yes" ];
+then
+    LIBRARY=$libminisat;
+    echo "$libminisat"
+    HEADER="../ipasir/ipasir.h";
+else
+    LIBRARY=$libcadical;
+    HEADER=$cadicalheader;
+fi;
+
+echo ""
 sed -e "s#@CC@#$CC#" \
     -e "s#@CFLAGS@#$CFLAGS#" \
     -e "s#@TARGETS@#$TARGETS#" \
+    -e "s#@IPASIRH@#$HEADER#" \
+    -e "s#@IPASIR@#$LIBRARY#" \
     makefile.in > makefile
 msg "generated 'makefile' (run 'make')"
