@@ -28,7 +28,8 @@ msg () {
 debug=no
 symbols=undefined
 check=undefined
-minisat=no;
+minisat=no
+cms=no
 
 CC="gcc"
 CFLAGS="-Wall"
@@ -44,6 +45,7 @@ do
     -p | --pdf*) TARGETS="$TARGETS pdfs";;
     -a | --asan) CFLAGS="${CFLAGS} -fsanitize=address";;
     --minisat) minisat=yes;;
+    --cms) cms=yes; minisat=no;;
     *) die "invalid option '$1' (try '-h')";;
   esac
   shift
@@ -99,6 +101,19 @@ then
   fi
 fi
 
+
+cmsdir="../my-cryptominisat/lib/"
+if [ $cms = "yes" ] && [ -d $cmsdir/ ]
+then
+  libcms="$cmsdir/libipasircryptominisat5.a"
+  if [ -f $libcms ]
+  then
+      msg "found cms";
+  else
+      msg "could not find '$libcms' library"
+  fi
+fi
+
 if [ $fuzzer = yes ]
 then
   msg "building and linking 'idrup-fuzz' fuzzer"
@@ -113,7 +128,8 @@ fi
 [ $symbols = yes ] && CFLAGS="$CFLAGS -g -ggdb3"
 [ $debug = no ] && CFLAGS="$CFLAGS -O3"
 [ $check = no ] && CFLAGS="$CFLAGS -DNDEBUG"
-[ $minisat = no ] && CFLAGS="$CFLAGS -DCADICAL"
+[ $minisat = no ] && [ $cms = no ] && CFLAGS="$CFLAGS -DCADICAL"
+[ $minisat = no ] && [ $cms = yes ] && CFLAGS="$CFLAGS -DCMS"
 
 msg "using '$CC $CFLAGS'"
 
@@ -122,6 +138,11 @@ then
     LIBRARY=$libminisat;
     echo "$libminisat"
     HEADER="../minisat-idrup/ipasir.h";
+elif [ $cms = "yes" ];
+then
+    LIBRARY=$libcms;
+    echo "$libminisat"
+    HEADER="../cryptominisat/src/ipasir.h";
 else
     LIBRARY=$libcadical;
     HEADER=$cadicalheader;
