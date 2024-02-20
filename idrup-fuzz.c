@@ -309,7 +309,7 @@ static void fuzz (uint64_t seed) {
         ipasir_add (ipasir_solver, 0);
 #endif
       fputs (" 0\n", icnf);
-#ifdef CADICAL
+#if defined(CADICAL) || defined (CMS)
       if (i == p)
 #else
       if (false)
@@ -320,6 +320,8 @@ static void fuzz (uint64_t seed) {
         fputs ("q 0\n", icnf), fflush (icnf);
 #ifdef CADICAL
         int res = ccadical_simplify (solver);
+#elif defined(CMS)
+        int res = ipasir_simplify (ipasir_solver);
 #else
 	int res = 0;
 #endif
@@ -327,8 +329,6 @@ static void fuzz (uint64_t seed) {
           fputs ("s UNSATISFIABLE\n", icnf), fflush (icnf);
 #ifdef CADICAL
           ccadical_conclude (solver);
-#else
-	  assert (false);
 #endif
           assert (res == 20);
           if (!quiet)
