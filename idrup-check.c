@@ -811,6 +811,14 @@ static int next_line_without_printing (char default_type) {
       break;
   }
 
+  // We have three 'types' denoting the letter 'i' etc. of the parsed line.
+  // The 'default_type' (if non-zero) is the one used in this context if the
+  // line does actually not contain a type (like in the DIMACS or original
+  // DRUP format).  The 'actual_type' is returned and allows to normalize
+  // types (for instance replacing 'a' with 'i').  The 'parsed_type' is the
+  // actual parsed letter (and zero if no letter was given).
+
+  int parsed_type = 0;
   int actual_type = 0;
   string = 0;
 
@@ -843,9 +851,13 @@ static int next_line_without_printing (char default_type) {
   }
 
   if ('a' <= ch && ch <= 'z') {
-    actual_type = ch;
+    parsed_type = ch;
+    if (ch == 'a')
+      actual_type = 'i';
+    else
+      actual_type = ch;
     if ((ch = next_char ()) != ' ')
-      parse_error ("expected space after '%c'", actual_type);
+      parse_error ("expected space after '%c'", parsed_type);
     ch = next_char ();
   } else if (!default_type) {
     if (isprint (ch))
@@ -2532,8 +2544,7 @@ int main (int argc, char **argv) {
 
   if (interactions)
     message ("reading incremental CNF '%s'", interactions->name);
-  message ("reading and checking incremental DRUP proof '%s'",
-           proof->name);
+  message ("reading and checking incremental DRUP proof '%s'", proof->name);
 
   int res;
   if (num_files == 1)
