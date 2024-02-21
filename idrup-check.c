@@ -2353,7 +2353,8 @@ static void release_inactive_clauses (void) {
 
 static void release_empty_clauses (void) {
   for (all_pointers (struct clause, c, empty_clauses))
-    free_clause (c);
+    if (!c->input)
+      free_clause (c);
   RELEASE (empty_clauses);
 }
 
