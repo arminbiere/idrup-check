@@ -853,7 +853,7 @@ static int next_line_without_printing (char default_type) {
   if ('a' <= ch && ch <= 'z') {
     parsed_type = ch;
     if (ch == 'a')
-      actual_type = 'i';
+      actual_type = 'q';
     else
       actual_type = ch;
     if ((ch = next_char ()) != ' ')
