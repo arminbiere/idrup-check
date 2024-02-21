@@ -83,7 +83,7 @@ enum {
 
 // Generic integer stack for literals.
 
-struct ints {
+struct lits {
   int *begin, *end, *allocated;
 };
 
@@ -156,9 +156,9 @@ static double start_time;
 
 /*------------------------------------------------------------------------*/
 
-static struct ints line;  // Current line of integers parsed.
-static struct ints saved; // Saved line for matching lines.
-static struct ints query; // Saved query for checking.
+static struct lits line;  // Current line of integers parsed.
+static struct lits saved; // Saved line for matching lines.
+static struct lits query; // Saved query for checking.
 
 // When saving a line the type and start of the line is saved too, where
 // with start-of-the-line we mean the line number in the file.
@@ -1082,12 +1082,12 @@ static void unmark_literal (int lit) {
   marks[lit] = false;
 }
 
-static void mark_literals (struct ints *lits) {
+static void mark_literals (struct lits *lits) {
   for (all_elements (int, lit, *lits))
     mark_literal (lit);
 }
 
-static void unmark_literals (struct ints *lits) {
+static void unmark_literals (struct lits *lits) {
   for (all_elements (int, lit, *lits))
     unmark_literal (lit);
 }
@@ -1098,7 +1098,7 @@ static void unmark_line (void) { unmark_literals (&line); }
 static void mark_query (void) { mark_literals (&query); }
 static void unmark_query (void) { unmark_literals (&query); }
 
-static bool subset_literals (struct ints *a, struct ints *b) {
+static bool subset_literals (struct lits *a, struct lits *b) {
   mark_literals (b);
   bool res = true;
   for (all_elements (int, lit, *a)) {
@@ -1112,7 +1112,7 @@ static bool subset_literals (struct ints *a, struct ints *b) {
   return res;
 }
 
-static bool match_literals (struct ints *a, struct ints *b) {
+static bool match_literals (struct lits *a, struct lits *b) {
   return subset_literals (a, b) && subset_literals (b, a);
 }
 
