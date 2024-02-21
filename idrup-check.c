@@ -2315,6 +2315,7 @@ static int parse_and_check_idrup (void) {
 // the second time through its larger watch.
 
 static void release_active_clauses (void) {
+  debug ("releasing active clauses");
   for (int lit = -max_var; lit <= max_var; lit++) {
     if (!lit)
       continue;
@@ -2340,6 +2341,7 @@ static void release_active_clauses (void) {
 }
 
 static void release_inactive_clauses (void) {
+  debug ("releasing inactive clauses");
   for (int lit = -max_var; lit <= max_var; lit++) {
     if (!lit)
       continue;
@@ -2352,6 +2354,7 @@ static void release_inactive_clauses (void) {
 }
 
 static void release_empty_clauses (void) {
+  debug ("releasing empty clauses");
   for (all_pointers (struct clause, c, empty_clauses))
     if (!c->input)
       free_clause (c);
@@ -2359,6 +2362,7 @@ static void release_empty_clauses (void) {
 }
 
 static void release_input_clauses (void) {
+  debug ("releasing input clauses");
   for (all_pointers (struct clause, c, input_clauses))
     free_clause (c);
   RELEASE (input_clauses);
