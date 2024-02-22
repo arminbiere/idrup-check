@@ -1147,11 +1147,11 @@ static struct clause *allocate_clause (bool input) {
   struct clause *c = malloc (all_bytes);
   if (!c)
     out_of_memory ("allocating clause of size %zu", size);
-  assert (file);
   statistics.added++;
 #ifndef NDEBUG
-  c->id = statistics.added;
+  assert (file);
   c->lineno = file->start_of_line;
+  c->id = statistics.added;
 #endif
   c->size = size;
   c->weakened = false;
