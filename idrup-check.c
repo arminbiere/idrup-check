@@ -967,7 +967,7 @@ static void unexpected_line (int type, const char *expected) {
 
 /*------------------------------------------------------------------------*/
 
-// Update trail and control stack including the decision level.
+// Update trail.
 
 static void push_trail (int lit) {
   assert (trail.end < trail.begin + max_var);
