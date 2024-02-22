@@ -1977,7 +1977,6 @@ static int parse_and_check_icnf_and_idrup (void) {
     int type = next_line ('i');
     if (type == 'i') {
       save_line (type);
-      add_input_clause (type);
       goto PROOF_INPUT;
     } else if (type == 'q') {
       start_query ();
@@ -1990,9 +1989,9 @@ static int parse_and_check_icnf_and_idrup (void) {
       if (match_header (ICNF))
         goto INTERACTION_INPUT;
       else
-        goto INTERACTION_INPUT_UNEXPECTED_LINE;
+        goto ERROR_INTERACTION_INPUT_UNEXPECTED_LINE;
     } else {
-    INTERACTION_INPUT_UNEXPECTED_LINE:
+    ERROR_INTERACTION_INPUT_UNEXPECTED_LINE:
       unexpected_line (type, "'i' or 'q'");
       goto UNREACHABLE;
     }
@@ -2003,14 +2002,15 @@ static int parse_and_check_icnf_and_idrup (void) {
     int type = next_line ('i');
     if (type == 'i') {
       match_saved (type, "input");
+      add_input_clause (type);
       goto INTERACTION_INPUT;
     } else if (type == 'p') {
       if (match_header (IDRUP))
         goto PROOF_INPUT;
       else
-        goto PROOF_INPUT_UNEXPECTED_LINE;
+        goto ERROR_PROOF_INPUT_UNEXPECTED_LINE;
     } else if (!is_learn_delete_restore_or_weaken (type)) {
-    PROOF_INPUT_UNEXPECTED_LINE:
+    ERROR_PROOF_INPUT_UNEXPECTED_LINE:
       unexpected_line (type, "'i', 'l', 'd', 'w' or 'r'");
       goto UNREACHABLE;
     } else {
@@ -2043,11 +2043,15 @@ static int parse_and_check_icnf_and_idrup (void) {
     STATE (PROOF_CHECK);
     set_file (proof);
     int type = next_line ('l');
-    if (is_learn_delete_restore_or_weaken (type)) {
+    if (type == 'i') {
+      save_line (type);
+      add_input_clause (type);
+      goto INTERACTION_PROPAGATE;
+    } else if (is_learn_delete_restore_or_weaken (type)) {
       learn_delete_restore_or_weaken (type);
       goto PROOF_CHECK;
     } else if (type != 's') {
-      unexpected_line (type, "'s', 'l', 'd', 'w' or 'r'");
+      unexpected_line (type, "'s', 'i', 'l', 'd', 'w' or 'r'");
       goto UNREACHABLE;
     } else if (string == SATISFIABLE)
       goto INTERACTION_SATISFIABLE;
@@ -2056,6 +2060,18 @@ static int parse_and_check_icnf_and_idrup (void) {
     else {
       assert (string == UNKNOWN);
       goto INTERACTION_UNKNOWN;
+    }
+  }
+  {
+    STATE (INTERACTION_PROPAGATE);
+    set_file (interactions);
+    int type = next_line ('i');
+    if (type == 'i') {
+      match_saved (type, "input");
+      goto PROOF_CHECK;
+    } else {
+      unexpected_line (type, "'i'");
+      goto UNREACHABLE;
     }
   }
   {
@@ -2233,11 +2249,14 @@ static int parse_and_check_idrup (void) {
   {
     STATE (PROOF_CHECK);
     int type = next_line ('l');
-    if (is_learn_delete_restore_or_weaken (type)) {
+    if (type == 'i') {
+      add_input_clause (type);
+      goto PROOF_CHECK;
+    } else if (is_learn_delete_restore_or_weaken (type)) {
       learn_delete_restore_or_weaken (type);
       goto PROOF_CHECK;
     } else if (type != 's') {
-      unexpected_line (type, "'s', 'l', 'd', 'w' or 'r'");
+      unexpected_line (type, "'s', 'i', 'l', 'd', 'w' or 'r'");
       goto UNREACHABLE;
     } else if (string == SATISFIABLE)
       goto PROOF_MODEL;
