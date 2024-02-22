@@ -21,7 +21,7 @@ run () {
   esac
   expected=$1
   shift
-  base="$1"
+  base=$1
   icnf=test/$base.icnf
   proof=test/$base.idrup
   log=test/$base.log
@@ -30,6 +30,7 @@ run () {
   then
     cmd="./$binary $proof"
   else
+    test -f $icnf || return
     cmd="./$binary $icnf $proof"
   fi
   printf "%s" "$cmd"
@@ -68,6 +69,7 @@ run 0 inputlearn1
 run 0 example1
 run 0 example2
 run 0 example3
+run 0 weaken
 run 0 dp2
 run 0 dp3
 run 0 dp4
@@ -78,6 +80,7 @@ run 0 regr2
 run 0 cnt2re
 
 run 1 litnotincore
+run 1 invalidempty
 
 files="`expr $files + 1`"
 
