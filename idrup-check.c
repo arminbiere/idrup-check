@@ -1357,23 +1357,14 @@ static bool propagate (void) {
 
 /*------------------------------------------------------------------------*/
 
-// A new query starts a new context with potentially new assumptions and
-// thus we have to backtrack to the root-level and reset the failed flag.
-
-static void reset_checker (void) {
-  if (!inconsistent && level) {
-    debug ("resetting assignment");
-    backtrack ();
-  } else
-    debug ("no need to reset assignment");
-}
+// A new query starts a new context.
 
 static void save_query (void) {
   debug ("saving query");
   COPY (int, query, line);
   start_of_query = file->start_of_line;
   statistics.queries++;
-  reset_checker ();
+  assert (!level);
 }
 
 /*------------------------------------------------------------------------*/
