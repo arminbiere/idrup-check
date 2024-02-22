@@ -264,9 +264,9 @@ static void fuzz (uint64_t seed) {
   ccadical_trace_proof (solver, idrup, IDRUP);
 #else
   void *ipasir_solver;
-    ipasir_solver = ipasir_init ();
-    ipasir_trace_proof (ipasir_solver, idrup);
-#endif  
+  ipasir_solver = ipasir_init ();
+  ipasir_trace_proof (ipasir_solver, idrup);
+#endif
   fputs ("p icnf\n", icnf);
   unsigned subset = (clauses + calls - 1) / calls;
   if (!quiet)

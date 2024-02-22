@@ -30,6 +30,7 @@ symbols=undefined
 check=undefined
 minisat=no
 cms=no
+glucose=no
 
 CC="gcc"
 CFLAGS="-Wall"
@@ -45,7 +46,8 @@ do
     -p | --pdf*) TARGETS="$TARGETS pdfs";;
     -a | --asan) CFLAGS="${CFLAGS} -fsanitize=address";;
     --minisat) minisat=yes;;
-    --cms) cms=yes; minisat=no;;
+    --cms) cms=yes; minisat=no; glucose=no;;
+    --glucose) glucose=yes; cms=no; minisat=no;;
     *) die "invalid option '$1' (try '-h')";;
   esac
   shift
@@ -114,6 +116,20 @@ then
   fi
 fi
 
+
+glucosedir="../minisat-idrup/sat/glucose/glucose4/"
+if [ $glucose = "yes" ] && [ -d $glucosedir/ ]
+then
+  libglucose="$glucosedir/libipasirglucose421.a"
+  if [ -f $libglucose ]
+  then
+      msg "found glucose";
+  else
+      msg "could not find '$libglucose' library"
+  fi
+fi
+
+
 if [ $fuzzer = yes ]
 then
   msg "building and linking 'idrup-fuzz' fuzzer"
@@ -128,24 +144,28 @@ fi
 [ $symbols = yes ] && CFLAGS="$CFLAGS -g -ggdb3"
 [ $debug = no ] && CFLAGS="$CFLAGS -O3"
 [ $check = no ] && CFLAGS="$CFLAGS -DNDEBUG"
-[ $minisat = no ] && [ $cms = no ] && CFLAGS="$CFLAGS -DCADICAL"
+[ $minisat = no ] && [ $cms = no ] && [ $glucose = no ] && CFLAGS="$CFLAGS -DCADICAL"
 [ $minisat = no ] && [ $cms = yes ] && CFLAGS="$CFLAGS -DCMS"
+[ $minisat = no ] && [ $cms = no ] && [ $glucose = yes ] && CFLAGS="$CFLAGS -DGLUCOSE"
 
 msg "using '$CC $CFLAGS'"
 
 if [ $minisat = "yes" ];
 then
-    LIBRARY=$libminisat;
-    echo "$libminisat"
-    HEADER="../minisat-idrup/ipasir.h";
+    LIBRARY=$libminisat
+    HEADER="../minisat-idrup/ipasir.h"
 elif [ $cms = "yes" ];
 then
-    LIBRARY=$libcms;
-    echo "$libminisat"
-    HEADER="../cryptominisat/src/ipasir.h";
+    LIBRARY=$libcms
+    HEADER="../cryptominisat/src/ipasir.h"
+elif [ $glucose = "yes" ];
+then
+    LIBRARY=$libglucose
+    HEADER="../minisat-idrup/ipasir.h"
 else
-    LIBRARY=$libcadical;
-    HEADER=$cadicalheader;
+    msg "using cadical"
+    LIBRARY=$libcadical
+    HEADER=$cadicalheader
 fi;
 
 echo ""
