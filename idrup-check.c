@@ -83,7 +83,7 @@ enum {
 
 // Generic integer stack for literals.
 
-struct ints {
+struct lits {
   int *begin, *end, *allocated;
 };
 
@@ -94,6 +94,7 @@ struct file {
   const char *name;      // Actual path to this file.
   size_t lines;          // Proof lines read from this file.
   size_t lineno;         // Line number of lines parsed so far.
+  size_t colno;          // Number of characters parsed in the line.
   size_t charno;         // Number of bytes parsed.
   size_t start_of_line;  // Line number of current proof line.
   bool end_of_file;      // Buffer 'read-char' detected end-of-file.
@@ -156,9 +157,9 @@ static double start_time;
 
 /*------------------------------------------------------------------------*/
 
-static struct ints line;  // Current line of integers parsed.
-static struct ints saved; // Saved line for matching lines.
-static struct ints query; // Saved query for checking.
+static struct lits line;  // Current line of integers parsed.
+static struct lits saved; // Saved line for matching lines.
+static struct lits query; // Saved query for checking.
 
 // When saving a line the type and start of the line is saved too, where
 // with start-of-the-line we mean the line number in the file.
@@ -420,8 +421,9 @@ static void parse_error (const char *, ...)
 
 static void parse_error (const char *fmt, ...) {
   assert (file);
-  fprintf (stderr, "idrup-check: parse error: at line %zu in '%s': ",
-           file->start_of_line, file->name);
+  fprintf (stderr,
+           "idrup-check: parse error: at line %zu column %zu in '%s': ",
+           file->start_of_line, file->colno, file->name);
   va_list ap;
   va_start (ap, fmt);
   vfprintf (stderr, fmt, ap);
@@ -775,8 +777,10 @@ static int next_char (void) {
   if (file->last_char == '\n')
     file->lineno++;
   file->last_char = res;
-  if (res != EOF)
+  if (res != EOF) {
     file->charno++;
+    file->colno++;
+  }
   return res;
 }
 
@@ -786,6 +790,7 @@ static int next_line_without_printing (char default_type) {
 
   int ch;
   for (;;) {
+    file->colno = 0;
     ch = next_char ();
     file->start_of_line = file->lineno;
     if (ch == 'c') {
@@ -811,6 +816,14 @@ static int next_line_without_printing (char default_type) {
       break;
   }
 
+  // We have three 'types' denoting the letter 'i' etc. of the parsed line.
+  // The 'default_type' (if non-zero) is the one used in this context if the
+  // line does actually not contain a type (like in the DIMACS or original
+  // DRUP format).  The 'actual_type' is returned and allows to normalize
+  // types (for instance replacing 'a' with 'i').  The 'parsed_type' is the
+  // actual parsed letter (and zero if no letter was given).
+
+  int parsed_type = 0;
   int actual_type = 0;
   string = 0;
 
@@ -843,9 +856,13 @@ static int next_line_without_printing (char default_type) {
   }
 
   if ('a' <= ch && ch <= 'z') {
-    actual_type = ch;
+    parsed_type = ch;
+    if (ch == 'a')
+      actual_type = 'q';
+    else
+      actual_type = ch;
     if ((ch = next_char ()) != ' ')
-      parse_error ("expected space after '%c'", actual_type);
+      parse_error ("expected space after '%c'", parsed_type);
     ch = next_char ();
   } else if (!default_type) {
     if (isprint (ch))
@@ -1070,12 +1087,12 @@ static void unmark_literal (int lit) {
   marks[lit] = false;
 }
 
-static void mark_literals (struct ints *lits) {
+static void mark_literals (struct lits *lits) {
   for (all_elements (int, lit, *lits))
     mark_literal (lit);
 }
 
-static void unmark_literals (struct ints *lits) {
+static void unmark_literals (struct lits *lits) {
   for (all_elements (int, lit, *lits))
     unmark_literal (lit);
 }
@@ -1086,7 +1103,7 @@ static void unmark_line (void) { unmark_literals (&line); }
 static void mark_query (void) { mark_literals (&query); }
 static void unmark_query (void) { unmark_literals (&query); }
 
-static bool subset_literals (struct ints *a, struct ints *b) {
+static bool subset_literals (struct lits *a, struct lits *b) {
   mark_literals (b);
   bool res = true;
   for (all_elements (int, lit, *a)) {
@@ -1100,7 +1117,7 @@ static bool subset_literals (struct ints *a, struct ints *b) {
   return res;
 }
 
-static bool match_literals (struct ints *a, struct ints *b) {
+static bool match_literals (struct lits *a, struct lits *b) {
   return subset_literals (a, b) && subset_literals (b, a);
 }
 
@@ -2298,6 +2315,7 @@ static int parse_and_check_idrup (void) {
 // the second time through its larger watch.
 
 static void release_active_clauses (void) {
+  debug ("releasing active clauses");
   for (int lit = -max_var; lit <= max_var; lit++) {
     if (!lit)
       continue;
@@ -2323,6 +2341,7 @@ static void release_active_clauses (void) {
 }
 
 static void release_inactive_clauses (void) {
+  debug ("releasing inactive clauses");
   for (int lit = -max_var; lit <= max_var; lit++) {
     if (!lit)
       continue;
@@ -2335,12 +2354,15 @@ static void release_inactive_clauses (void) {
 }
 
 static void release_empty_clauses (void) {
+  debug ("releasing empty clauses");
   for (all_pointers (struct clause, c, empty_clauses))
-    free_clause (c);
+    if (!c->input)
+      free_clause (c);
   RELEASE (empty_clauses);
 }
 
 static void release_input_clauses (void) {
+  debug ("releasing input clauses");
   for (all_pointers (struct clause, c, input_clauses))
     free_clause (c);
   RELEASE (input_clauses);
@@ -2532,8 +2554,7 @@ int main (int argc, char **argv) {
 
   if (interactions)
     message ("reading incremental CNF '%s'", interactions->name);
-  message ("reading and checking incremental DRUP proof '%s'",
-           proof->name);
+  message ("reading and checking incremental DRUP proof '%s'", proof->name);
 
   int res;
   if (num_files == 1)
@@ -2554,7 +2575,7 @@ int main (int argc, char **argv) {
       if (!i)
         fputs ("c\n", stdout);
       message ("closing '%s' after reading %zu lines (%zu bytes)",
-               files[i].name, files[i].lineno, files[i].charno);
+               files[i].name, files[i].lineno - 1, files[i].charno);
     }
     fclose (files[i].file);
   }
