@@ -42,8 +42,11 @@ static const char * usage =
 /*------------------------------------------------------------------------*/
 
 // Depends on 'CaDiCaL' but goes through its C interface for simplicity.
-
+#ifdef CADICAL
 #include "ccadical.h"
+#else
+#include "ipasir.h"
+#endif
 
 /*------------------------------------------------------------------------*/
 
@@ -64,7 +67,6 @@ static const char * usage =
 /*------------------------------------------------------------------------*/
 
 // Global configuration options.
-
 static bool quiet;      // Force not output if enabled.
 static bool small;      // Only use a small set of variables.
 static bool terminal;   // Erase printed lines if connected to a terminal.
@@ -255,10 +257,16 @@ static void fuzz (uint64_t seed) {
 #define IDRUP PATH ".idrup"
   FILE *icnf = write_to_file (ICNF);
   FILE *idrup = write_to_file (IDRUP);
+#ifdef CADICAL
   CCaDiCaL *solver = ccadical_init ();
   ccadical_set_option (solver, "idrup", 1);
   ccadical_set_option (solver, "binary", 0);
   ccadical_trace_proof (solver, idrup, IDRUP);
+#else
+  void *ipasir_solver;
+  ipasir_solver = ipasir_init ();
+  ipasir_trace_proof (ipasir_solver, idrup);
+#endif
   fputs ("p icnf\n", icnf);
   unsigned subset = (clauses + calls - 1) / calls;
   if (!quiet)
@@ -288,19 +296,40 @@ static void fuzz (uint64_t seed) {
       fputc ('i', icnf);
       for (unsigned j = 0; j != k; j++) {
         int lit = clause[j];
-        ccadical_add (solver, lit);
+#ifdef CADICAL
+          ccadical_add (solver, lit);
+#else
+	  ipasir_add (ipasir_solver, lit);
+#endif
         fprintf (icnf, " %d", lit);
       }
-      ccadical_add (solver, 0);
+#ifdef CADICAL
+        ccadical_add (solver, 0);
+#else
+        ipasir_add (ipasir_solver, 0);
+#endif
       fputs (" 0\n", icnf);
-      if (i == p) {
+#if defined(CADICAL) || defined (CMS)
+      if (i == p)
+#else
+      if (false)
+#endif
+	{
         if (!quiet)
           fputc ('p', stdout), fflush (stdout);
         fputs ("q 0\n", icnf), fflush (icnf);
+#ifdef CADICAL
         int res = ccadical_simplify (solver);
+#elif defined(CMS)
+        int res = ipasir_simplify (ipasir_solver);
+#else
+	int res = 0;
+#endif
         if (res) {
           fputs ("s UNSATISFIABLE\n", icnf), fflush (icnf);
+#ifdef CADICAL
           ccadical_conclude (solver);
+#endif
           assert (res == 20);
           if (!quiet)
             fputs ("*u", stdout), fflush (stdout);
@@ -319,11 +348,20 @@ static void fuzz (uint64_t seed) {
       pick_literals (&rng, query, k);
       for (unsigned j = 0; j != k; j++) {
         int lit = query[j];
+#ifdef CADICAL
         ccadical_assume (solver, lit);
+#else
+	ipasir_assume (ipasir_solver, lit);
+#endif
         fprintf (icnf, " %d", lit);
       }
       fputs (" 0\n", icnf), fflush (icnf);
-      int res = ccadical_solve (solver);
+      int res = -1;
+#ifdef CADICAL
+	res = ccadical_solve (solver);
+#else
+	res = ipasir_solve (ipasir_solver);
+#endif
       bool concluded = false;
       if (res == 10) {
         if (!quiet)
@@ -334,7 +372,12 @@ static void fuzz (uint64_t seed) {
           unsigned values = pick (&rng, 0, vars);
           for (unsigned i = 0; i != values; i++) {
             int lit = pick (&rng, 1, vars);
-            int val = ccadical_val (solver, lit);
+            int val;
+#ifdef CADICAL
+	      val = ccadical_val (solver, lit);
+#else
+	      val = ipasir_val (ipasir_solver, lit);
+#endif
             fprintf (icnf, " %d", val == lit ? lit : -lit);
             concluded = true;
           }
@@ -355,7 +398,12 @@ static void fuzz (uint64_t seed) {
           }
           for (int i = 0; i != vars; i++) {
 	    int lit = scrambled[i];
-            int val = ccadical_val (solver, lit);
+            int val;
+#ifdef CADICAL
+            val = ccadical_val (solver, lit);
+#else
+            val = ipasir_val (ipasir_solver, lit);
+#endif
             fprintf (icnf, " %d", val == lit ? lit : -lit);
             concluded = true;
           }
@@ -368,7 +416,13 @@ static void fuzz (uint64_t seed) {
         fputc ('u', icnf); // TODO what about 'f'?
         for (unsigned j = 0; j != k; j++) {
           int lit = query[j];
-          if (ccadical_failed (solver, lit))
+          bool f;
+#ifdef CADICAL
+            f = ccadical_failed (solver, lit);
+#else
+            f = ipasir_failed (ipasir_solver, lit);
+#endif
+          if (f)
             fprintf (icnf, " %d", lit);
           concluded = true;
         }
@@ -376,12 +430,20 @@ static void fuzz (uint64_t seed) {
       fputs (" 0\n", icnf);
       fflush (icnf);
       (void) concluded;
+#ifdef CADICAL
       // if (!concluded) // TODO could make this optional.
-      ccadical_conclude (solver);
+        ccadical_conclude (solver);
+#else
+	assert (true);
+#endif
     }
   CONTINUE_WITH_OUTER_LOOP:;
   }
-  ccadical_release (solver);
+#ifdef CADICAL
+    ccadical_release (solver);
+#else
+    ipasir_release (ipasir_solver);
+#endif
   fclose (icnf);
   fclose (idrup);
   if (!quiet)
@@ -478,7 +540,11 @@ int main (int argc, char **argv) {
     }
   }
   msg ("IDRUP Fuzzer Version 0.0");
+#ifdef CADICAL
   msg ("using %s", ccadical_signature ());
+#else
+  msg ("using %s", ipasir_signature ());
+#endif
   if (seeded)
     msg ("specified seed %" PRIu64, rng);
   else {
