@@ -81,6 +81,8 @@ run 0 cnt2re
 
 run 1 litnotincore
 run 1 invalidempty
+run 1 invalidfull2
+run 1 invalideleted
 
 files="`expr $files + 1`"
 

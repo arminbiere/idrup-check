@@ -187,13 +187,13 @@ static const char *string;
 // Checker state.
 
 static int max_var;              // Maximum variable index imported.
-static size_t allocated;         // Allocated variables (>= 'max_var').
 static unsigned level;           // Decision level (number assumptions).
+static size_t allocated;         // Allocated variables (>= 'max_var').
 static bool *imported;           // Variable index imported?
-static unsigned *levels;         // Decision level of assigned variables.
 static struct clauses *matrix;   // Mapping literals to watcher stacks.
 static struct clauses *inactive; // Inactive weakened clauses.
 static signed char *values;      // Assignment of literal: -1, 0, or 1.
+static unsigned *levels;         // Decision level of assigned variables.
 static bool *marks;              // Marks of literals.
 
 // This is the default preallocated trail. It is only resized during
@@ -1023,9 +1023,8 @@ static void assign_decision (int lit) {
   values[-lit] = -1;
   values[lit] = 1;
   int idx = abs (lit);
-  levels[idx] = level;
+  levels[idx] = ++level;
   statistics.decisions++;
-  level++;
   debug ("assign %s as decision", debug_literal (lit));
 }
 
