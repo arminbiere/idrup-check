@@ -28,6 +28,9 @@ msg () {
 debug=no
 symbols=undefined
 check=undefined
+minisat=no
+cms=no
+glucose=no
 
 CC="gcc"
 CFLAGS="-Wall"
@@ -42,6 +45,9 @@ do
     -c | --check) check=yes;;
     -p | --pdf*) TARGETS="$TARGETS pdfs";;
     -a | --asan) CFLAGS="${CFLAGS} -fsanitize=address";;
+    --minisat) minisat=yes;;
+    --cms) cms=yes; minisat=no; glucose=no;;
+    --glucose) glucose=yes; cms=no; minisat=no;;
     *) die "invalid option '$1' (try '-h')";;
   esac
   shift
@@ -50,6 +56,8 @@ done
 fuzzer=no
 cadical=no
 cadicaldir="../cadical"
+minisatdir="../minisat-idrup/sat/minisat220/"
+
 if [ -d $cadicaldir/ ]
 then
   cadicalbuild=$cadicaldir/build
@@ -84,6 +92,44 @@ else
   msg "could not '$cadicaldir' root directory"
 fi
 
+if [ $minisat = "yes" ] && [ -d $minisatdir/ ]
+then
+  libminisat="$minisatdir/libipasirminisat220.a"
+  if [ -f $libminisat ]
+  then
+      msg "found minisat";
+  else
+      msg "could not find '$libminisat' library"
+  fi
+fi
+
+
+cmsdir="../my-cryptominisat/lib/"
+if [ $cms = "yes" ] && [ -d $cmsdir/ ]
+then
+  libcms="$cmsdir/libipasircryptominisat5.a"
+  if [ -f $libcms ]
+  then
+      msg "found cms";
+  else
+      msg "could not find '$libcms' library"
+  fi
+fi
+
+
+glucosedir="../minisat-idrup/sat/glucose/glucose4/"
+if [ $glucose = "yes" ] && [ -d $glucosedir/ ]
+then
+  libglucose="$glucosedir/libipasirglucose421.a"
+  if [ -f $libglucose ]
+  then
+      msg "found glucose";
+  else
+      msg "could not find '$libglucose' library"
+  fi
+fi
+
+
 if [ $fuzzer = yes ]
 then
   msg "building and linking 'idrup-fuzz' fuzzer"
@@ -98,11 +144,35 @@ fi
 [ $symbols = yes ] && CFLAGS="$CFLAGS -g -ggdb3"
 [ $debug = no ] && CFLAGS="$CFLAGS -O3"
 [ $check = no ] && CFLAGS="$CFLAGS -DNDEBUG"
+[ $minisat = no ] && [ $cms = no ] && [ $glucose = no ] && CFLAGS="$CFLAGS -DCADICAL"
+[ $minisat = no ] && [ $cms = yes ] && CFLAGS="$CFLAGS -DCMS"
+[ $minisat = no ] && [ $cms = no ] && [ $glucose = yes ] && CFLAGS="$CFLAGS -DGLUCOSE"
 
 msg "using '$CC $CFLAGS'"
 
+if [ $minisat = "yes" ];
+then
+    LIBRARY=$libminisat
+    HEADER="../minisat-idrup/ipasir.h"
+elif [ $cms = "yes" ];
+then
+    LIBRARY=$libcms
+    HEADER="../cryptominisat/src/ipasir.h"
+elif [ $glucose = "yes" ];
+then
+    LIBRARY=$libglucose
+    HEADER="../minisat-idrup/ipasir.h"
+else
+    msg "using cadical"
+    LIBRARY=$libcadical
+    HEADER=$cadicalheader
+fi;
+
+echo ""
 sed -e "s#@CC@#$CC#" \
     -e "s#@CFLAGS@#$CFLAGS#" \
     -e "s#@TARGETS@#$TARGETS#" \
+    -e "s#@IPASIRH@#$HEADER#" \
+    -e "s#@IPASIR@#$LIBRARY#" \
     makefile.in > makefile
 msg "generated 'makefile' (run 'make')"

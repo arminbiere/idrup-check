@@ -187,13 +187,13 @@ static const char *string;
 // Checker state.
 
 static int max_var;              // Maximum variable index imported.
-static size_t allocated;         // Allocated variables (>= 'max_var').
 static unsigned level;           // Decision level (number assumptions).
+static size_t allocated;         // Allocated variables (>= 'max_var').
 static bool *imported;           // Variable index imported?
-static unsigned *levels;         // Decision level of assigned variables.
 static struct clauses *matrix;   // Mapping literals to watcher stacks.
 static struct clauses *inactive; // Inactive weakened clauses.
 static signed char *values;      // Assignment of literal: -1, 0, or 1.
+static unsigned *levels;         // Decision level of assigned variables.
 static bool *marks;              // Marks of literals.
 
 // This is the default preallocated trail. It is only resized during
@@ -967,7 +967,7 @@ static void unexpected_line (int type, const char *expected) {
 
 /*------------------------------------------------------------------------*/
 
-// Update trail and control stack including the decision level.
+// Update trail.
 
 static void push_trail (int lit) {
   assert (trail.end < trail.begin + max_var);
@@ -1023,9 +1023,8 @@ static void assign_decision (int lit) {
   values[-lit] = -1;
   values[lit] = 1;
   int idx = abs (lit);
-  levels[idx] = level;
+  levels[idx] = ++level;
   statistics.decisions++;
-  level++;
   debug ("assign %s as decision", debug_literal (lit));
 }
 
@@ -1148,11 +1147,11 @@ static struct clause *allocate_clause (bool input) {
   struct clause *c = malloc (all_bytes);
   if (!c)
     out_of_memory ("allocating clause of size %zu", size);
-  assert (file);
   statistics.added++;
 #ifndef NDEBUG
-  c->id = statistics.added;
+  assert (file);
   c->lineno = file->start_of_line;
+  c->id = statistics.added;
 #endif
   c->size = size;
   c->weakened = false;
@@ -1358,23 +1357,14 @@ static bool propagate (void) {
 
 /*------------------------------------------------------------------------*/
 
-// A new query starts a new context with potentially new assumptions and
-// thus we have to backtrack to the root-level and reset the failed flag.
-
-static void reset_checker (void) {
-  if (!inconsistent && level) {
-    debug ("resetting assignment");
-    backtrack ();
-  } else
-    debug ("no need to reset assignment");
-}
+// A new query starts a new context.
 
 static void save_query (void) {
   debug ("saving query");
   COPY (int, query, line);
   start_of_query = file->start_of_line;
   statistics.queries++;
-  reset_checker ();
+  assert (!level);
 }
 
 /*------------------------------------------------------------------------*/
